@@ -22,6 +22,7 @@ const conversionRoutes = require('./routes/conversion');
 const adminRoutes = require('./routes/admin');
 const eventsRoutes = require('./routes/events');
 const securityRoutes = require('./routes/security');
+const accountsRoutes = require('./routes/accounts');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,17 +36,26 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
 
-// CORS - allow any localhost origin (Vite may use different ports)
+// FIX #3: Allow localhost AND real production origins.
+const ALLOWED_ORIGINS = [
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  /^https:\/\/.*\.vercel\.app$/,
+  /^https:\/\/.*\.netlify\.app$/,
+  'https://sx-institutional.onrender.com',
+  'https://sx-institutional-frontend.onrender.com'
+];
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) {
-      return callback(null, true);
-    }
-    callback(null, false);
+    if (!origin) return callback(null, true); // allow server-to-server / curl
+    const allowed = ALLOWED_ORIGINS.some(o =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    if (allowed) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`), false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-wallet-address'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-wallet-address', 'x-wallet-signature', 'x-wallet-message'],
   credentials: true
 }));
 
@@ -136,6 +146,7 @@ app.use('/api/conversion', conversionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/security', securityRoutes);
+app.use('/api/accounts', accountsRoutes);
 
 // 404 handler
 app.use((req, res) => {

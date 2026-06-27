@@ -19,12 +19,26 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       unique: true,
       allowNull: false
+    },
+    username: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true
+    },
+    referralCode: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    accountTier: {
+      type: DataTypes.STRING,
+      defaultValue: 'Standard'
     }
   }, {
     tableName: 'users',
     indexes: [
       { unique: true, fields: ['walletAddress'] },
-      { unique: true, fields: ['sxId'] }
+      { unique: true, fields: ['sxId'] },
+      { unique: true, fields: ['username'] }
     ]
   });
 

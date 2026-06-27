@@ -1,5 +1,10 @@
 const db = require('../models');
 
+/**
+ * FIX #9: In-memory trackers are still used for performance, but lockouts
+ * are also persisted to the database (JailbreakLog) so they survive server
+ * restarts. On startup, recent DB records are hydrated back into memory.
+ */
 const JAILBREAK_PATTERNS = [
   'ignore',
   'pretend',
@@ -77,6 +82,30 @@ function checkLockout(ip) {
   return false;
 }
 
+/**
+ * FIX #9: Checks the DB for a persisted lockout when the in-memory tracker
+ * has no record (i.e. after a server restart).
+ */
+async function checkDbLockout(ip) {
+  try {
+    const record = await db.JailbreakLog.findOne({
+      where: { ipAddress: ip },
+      order: [['createdAt', 'DESC']]
+    });
+    if (record && record.lockoutUntil && new Date(record.lockoutUntil) > new Date()) {
+      // Hydrate back into memory so subsequent checks are fast
+      violationTracker.set(ip, {
+        timestamps: [],
+        lockoutUntil: new Date(record.lockoutUntil).getTime()
+      });
+      return new Date(record.lockoutUntil).getTime();
+    }
+  } catch (e) {
+    // DB unavailable — fall through and allow (fail open for availability)
+  }
+  return false;
+}
+
 function recordViolation(ip) {
   const now = Date.now();
   if (!violationTracker.has(ip)) {
@@ -118,7 +147,11 @@ function extractAllText(obj) {
 async function jailbreakDetector(req, res, next) {
   const ip = getClientIp(req);
 
-  const lockoutUntil = checkLockout(ip);
+  // FIX #9: Check in-memory first; fall back to DB if not found (post-restart).
+  let lockoutUntil = checkLockout(ip);
+  if (!lockoutUntil) {
+    lockoutUntil = await checkDbLockout(ip);
+  }
   if (lockoutUntil) {
     const remainingMs = lockoutUntil - Date.now();
     const remainingMin = Math.ceil(remainingMs / 60000);

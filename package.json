@@ -6,8 +6,37 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "jest --coverage",
+    "test": "jest --coverage --forceExit",
+    "test:unit": "jest tests/unit --coverage --forceExit",
+    "test:api": "jest tests/api --coverage --forceExit",
+    "test:middleware": "jest tests/middleware --coverage --forceExit",
     "migrate": "node src/migrations/run.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/routes/**/*.js",
+      "src/middleware/**/*.js",
+      "!src/models/**",
+      "!src/websocket/**",
+      "!src/config/**",
+      "!src/server.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 75,
+        "functions": 85,
+        "lines": 85,
+        "statements": 85
+      }
+    },
+    "coverageReporters": ["text", "lcov", "html"],
+    "coverageDirectory": "coverage",
+    "verbose": true,
+    "testTimeout": 10000
   },
   "dependencies": {
     "cors": "^2.8.5",
